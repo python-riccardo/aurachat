@@ -1,4 +1,5 @@
-# server.py - Server multi-utente con logging ed export 
+# server.py - Server multi-utente con logging ed export (parametri limitati)
+
 import socket
 import threading
 import json
@@ -47,6 +48,7 @@ def assicura_cartella_util():
 def scrivi_log(tipo, utente, messaggio):
     try:
         assicura_cartella_util()
+
         if not os.path.exists(PERCORSO_LOG) or os.stat(PERCORSO_LOG).st_size == 0:
             root = ET.Element("logs")
             tree = ET.ElementTree(root)
@@ -78,6 +80,7 @@ def scoperta_udp():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
     try:
         sock.bind(('', PORTA))
     except Exception as e:
@@ -85,6 +88,7 @@ def scoperta_udp():
         return
 
     print(f"[UDP] Discovery attivo su porta {PORTA}")
+
     while True:
         try:
             data, addr = sock.recvfrom(1024)
@@ -101,33 +105,11 @@ def prepara_export(parametri):
     tree = ET.parse(PERCORSO_LOG)
     root = tree.getroot()
 
-    formato = "txt"
-    numero = None
-    filtro = "ALL"
-
-    if len(parametri) > 0:
-        formato = parametri[0].lower()
-    if len(parametri) > 1:
-        try:
-            numero = int(parametri[1])
-        except:
-            pass
-    if len(parametri) > 2:
-        filtro = parametri[2].upper()
-
-    eventi = []
-    for ev in root.findall("event"):
-        user = ev.get("user", "")
-        if filtro == "SERVER" and user != "SERVER":
-            continue
-        if filtro == "CLIENT" and user == "SERVER":
-            continue
-        eventi.append(ev)
-
-    if numero:
-        eventi = eventi[-numero:]
+    formato = parametri[0].lower() if parametri else "txt"
+    eventi = root.findall("event")
 
     righe = []
+
     if formato == "xml":
         righe.append('<?xml version="1.0" encoding="utf-8"?>')
         righe.append("<logs>")
@@ -145,6 +127,7 @@ def prepara_export(parametri):
             u = ev.get("user", "")
             ty = ev.get("type", "")
             m = ev.text or ""
+
             if formato == "csv":
                 m = m.replace(",", ";").replace("\n", " ")
                 righe.append(f"{t},{u},{ty},{m}")
@@ -168,6 +151,7 @@ def gestisci_client(sock, addr):
     utente = None
     ip = addr[0]
     sock.settimeout(120)
+
     print("[NEW]", addr)
 
     try:
@@ -179,12 +163,14 @@ def gestisci_client(sock, addr):
         if u not in UTENTI or UTENTI[u] != p:
             invia_testo(sock, "Credenziali errate.")
             return
+
         if u in clienti.values():
             invia_testo(sock, "Utente già connesso.")
             return
 
         utente = u
         clienti[sock] = utente
+
         invia_testo(sock, f"Login OK. Benvenuto {utente}")
         scrivi_log("LOGIN", utente, f"IP {ip}")
 
@@ -207,14 +193,14 @@ def gestisci_client(sock, addr):
 
             if cmd == "HELP":
                 invia_testo(sock, """COMANDI:
-TIME
-NAME
-INFO [1-5]
-USERSLIST
-LOG [num] [ALL/CLIENT/SERVER]
-EXPORT / EX [txt/csv/xml] [num] [ALL/CLIENT/SERVER]
-EXIT
-""")
+                                        TIME
+                                        NAME
+                                        INFO [1-5]
+                                        USERSLIST
+                                        LOG
+                                        EXPORT / EX [txt|csv|xml]
+                                        EXIT
+                                        """)
 
             elif cmd == "TIME":
                 invia_testo(sock, datetime.now().strftime("%H:%M:%S"))
@@ -241,16 +227,25 @@ EXIT
                 altri = [x for x in clienti.values() if x != utente]
                 invia_testo(sock, ", ".join(altri) if altri else "Nessun altro utente")
 
+            elif cmd == "LOG":
+                if par:
+                    invia_testo(sock, "Uso consentito: LOG")
+                    continue
+                _, cont = prepara_export(["txt"])
+                invia_testo(sock, cont)
+
             elif cmd in ("EXPORT", "EX"):
-                nome, cont = prepara_export(par)
+                if len(par) > 1:
+                    invia_testo(sock, "Uso consentito: EXPORT [txt|csv|xml]")
+                    continue
+
+                formato = par[0] if par else "txt"
+                nome, cont = prepara_export([formato])
+
                 if nome:
                     invia_file(sock, nome, cont)
                 else:
                     invia_testo(sock, cont)
-
-            elif cmd == "LOG":
-                nome, cont = prepara_export(["txt"] + par)
-                invia_testo(sock, cont)
 
             elif cmd == "EXIT":
                 break
@@ -263,12 +258,15 @@ EXIT
     finally:
         if sock in clienti:
             del clienti[sock]
+
         try:
             sock.close()
         except:
             pass
+
         if utente:
             scrivi_log("LOGOUT", utente, "Disconnesso")
+
         print("[CLOSE]", utente)
 
 
