@@ -69,9 +69,9 @@ Le credenziali sono configurate in `util/config.json`:
 | Username | Password    |
 |----------|-------------|
 | admin    | admin       |
-| alice    | password123 |
-| bob      | password456 |
-| mario    | rossi       |
+| dante    | ktm |
+| riccardo      | nopatente |
+| pedrollo    | fascio       |
 
 ## Comandi Disponibili
 

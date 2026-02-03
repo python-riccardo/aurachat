@@ -2,8 +2,8 @@
     "server_port": 20498,
     "users": {
         "admin": "admin",
-        "alice": "password123",
-        "bob": "password456",
-        "mario": "rossi"
+        "dante": "ktm",
+        "riccardo": "nopatente",
+        "pedrollo": "fascio"
     }
 }
