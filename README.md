@@ -169,6 +169,6 @@ EX xml        # Esporta i log in XML
 - Invia qualsiasi comando per mantenere la connessione attiva
 
 ## Autore
-Sistema AuraChat - Progetto didattico per reti di computer
-20205@studenti.marconiverona.edu.it - Riccardo Costantini
+Sistema AuraChat - Progetto didattico per reti di computer 
+20205@studenti.marconiverona.edu.it - Riccardo Costantini 
 20388@studenti.marconiverona.edu.it - Dante Pastrello
