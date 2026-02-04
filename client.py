@@ -6,11 +6,10 @@ import threading
 import time
 
 PORTA_BROADCAST = 20498
-LOCK_STAMPA = threading.Lock()
+LOCK_STAMPA = threading.Lock() # Evita che più thread stampino insieme
 
-
+# Trova il server nella rete locale senza sapere IP e porta ma inviando in broadcast il proprio DISCOVERY aspettando che un server risponda con un OFFER
 def scopri_server():
-    """Invia broadcast UDP per trovare automaticamente il server sulla rete locale"""
     print("Cerco il server...")
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -26,10 +25,8 @@ def scopri_server():
         pass
     return None, None
 
-
+# Continua a ricevere finche non trova il carattere INVIO (\n). Analizza byte per byte
 def ricevi_riga(sock, timeout=5.0):
-    """Riceve byte fino al carattere newline '\\n' e restituisce la riga decodificata.
-       timeout=None => modalità bloccante"""
     vecchio_timeout = sock.gettimeout()
     try:
         sock.settimeout(timeout)
@@ -49,9 +46,8 @@ def ricevi_riga(sock, timeout=5.0):
     finally:
         sock.settimeout(vecchio_timeout)
 
-
+# Continua a ricevere finche non riceve un certo numero di byte
 def ricevi_esatto(sock, dimensione):
-    """Riceve esattamente 'dimensione' byte dal socket"""
     frammenti = []
     byte_ricevuti = 0
     while byte_ricevuti < dimensione:
@@ -62,9 +58,8 @@ def ricevi_esatto(sock, dimensione):
         byte_ricevuti += len(frammento)
     return b''.join(frammenti)
 
-
+# Crea una cartella locale sul client e ci salva i file
 def salva_file_byte(nome_file, dati_byte):
-    """Salva un file ricevuto dal server nella cartella locale del client"""
     cartella_base = os.path.dirname(os.path.abspath(__file__))
     percorso_file = os.path.join(cartella_base, nome_file)
     cartella = os.path.dirname(percorso_file)
@@ -75,10 +70,8 @@ def salva_file_byte(nome_file, dati_byte):
     with LOCK_STAMPA:
         print(f"\n[FILE] Salvato in: {percorso_file}\n")
 
-
+# Thread per ricevere e leggere i messaggi del server no-stop
 def thread_ricezione(sock, evento_stop):
-    """Thread separato che riceve continuamente messaggi dal server e li visualizza.
-       Gestisce sia messaggi di testo che file in arrivo."""
     while not evento_stop.is_set():
         try:
             # Legge la prima riga (può essere testo normale o header di file)
@@ -133,9 +126,9 @@ def thread_ricezione(sock, evento_stop):
                 print("Errore ricezione:", e)
             break
 
-
+# Connessione al server con TCP, autenticazione e scambio di messaggi
 def avvia_client():
-    """Funzione principale che gestisce la connessione e l'interazione con il server"""
+
     # Scoperta automatica del server
     ip, porta = scopri_server()
     if not ip:

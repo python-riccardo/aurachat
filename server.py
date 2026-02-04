@@ -13,7 +13,7 @@ CARTELLA_BASE = os.path.dirname(os.path.abspath(__file__))
 PERCORSO_CONFIG = os.path.join(CARTELLA_BASE, 'util', 'config.json')
 PERCORSO_LOG = os.path.join(CARTELLA_BASE, 'util', 'log.xml')
 
-# Configurazione
+# Carica la configurazione degli utenti e della porta da utilizzare
 try:
     with open(PERCORSO_CONFIG, 'r') as f:
         configurazione = json.load(f)
@@ -23,9 +23,11 @@ except:
     PORTA = 20498
     UTENTI = {"admin": "admin"}
 
+# Dizionario che contiene gli utenti online
 clienti = {}  # socket -> username
 
 
+# Trova l'ip di questo server
 def trova_ip_locale():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -37,14 +39,14 @@ def trova_ip_locale():
         s.close()
     return ip
 
-
 IP_SERVER = trova_ip_locale()
 
 
+# Creazione cartel Util
 def assicura_cartella_util():
     os.makedirs(os.path.join(CARTELLA_BASE, 'util'), exist_ok=True)
 
-
+# Apre log.xml oppure lo crea se non esiste. Aggiunge un <event> per ogni azione da tracciare.
 def scrivi_log(tipo, utente, messaggio):
     try:
         assicura_cartella_util()
@@ -66,7 +68,7 @@ def scrivi_log(tipo, utente, messaggio):
     except Exception as e:
         print("Errore log:", e)
 
-
+# Trasmette del testo alla socket data nel parametro
 def invia_testo(sock, testo):
     try:
         if not testo.endswith("\n"):
@@ -76,6 +78,7 @@ def invia_testo(sock, testo):
         pass
 
 
+# Funzione per farsi notare nella LAN inviando il DISCOVERY in broadcast
 def scoperta_udp():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -97,7 +100,7 @@ def scoperta_udp():
         except:
             pass
 
-
+# Esporta i log
 def prepara_export(parametri):
     if not os.path.exists(PERCORSO_LOG):
         return None, "Nessun log presente."
@@ -137,7 +140,7 @@ def prepara_export(parametri):
     nome = f"export_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{formato}"
     return nome, "\n".join(righe)
 
-
+# Utilizzato per esportare i log da server a client
 def invia_file(sock, nome, contenuto):
     try:
         data = contenuto.encode("utf-8")
@@ -146,7 +149,7 @@ def invia_file(sock, nome, contenuto):
     except:
         invia_testo(sock, "Errore invio file")
 
-
+# Autenticazione dell'utente 
 def gestisci_client(sock, addr):
     utente = None
     ip = addr[0]
@@ -176,11 +179,11 @@ def gestisci_client(sock, addr):
 
         while True:
             try:
-                data = sock.recv(4096)
+                data = sock.recv(4096) # Aspetta i dati massimo 4096 Byte
                 if not data:
                     break
                 msg = data.decode().strip()
-            except socket.timeout:
+            except socket.timeout: # Se passano i 120 secondi si viene disconnessi
                 invia_testo(sock, "Timeout inattività.")
                 break
 
@@ -188,8 +191,8 @@ def gestisci_client(sock, addr):
             if not parti:
                 continue
 
-            cmd = parti[0].upper()
-            par = parti[1:]
+            cmd = parti[0].upper() # Prima parola del comando (esempio NAME)
+            par = parti[1:] # Eventuali parametri
 
             if cmd == "HELP":
                 invia_testo(sock, """COMANDI:
@@ -255,6 +258,7 @@ def gestisci_client(sock, addr):
 
             scrivi_log("CMD", utente, cmd)
 
+    # Una volta chiusa la connessione chiudiamo il socket e loggiamo tutto
     finally:
         if sock in clienti:
             del clienti[sock]
@@ -270,6 +274,7 @@ def gestisci_client(sock, addr):
         print("[CLOSE]", utente)
 
 
+# Punto di ingresso del programma
 if __name__ == "__main__":
     assicura_cartella_util()
 
