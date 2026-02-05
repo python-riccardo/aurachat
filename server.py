@@ -78,7 +78,7 @@ def invia_testo(sock, testo):
         pass
 
 
-# Funzione per cercare nella LAN inviando il DISCOVERY in broadcast
+# Funzione per cercare nella LAN inviando il DISCOVERY in broadcast UDP
 def scoperta_udp():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -280,8 +280,10 @@ if __name__ == "__main__":
 
     threading.Thread(target=scoperta_udp, daemon=True).start()
 
+    # Apre il canale TCP
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
     server.bind((IP_SERVER, PORTA))
     server.listen(5)
 
