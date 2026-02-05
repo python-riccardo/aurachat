@@ -8,25 +8,6 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from xml.sax.saxutils import escape
 
-# Percorsi
-CARTELLA_BASE = os.path.dirname(os.path.abspath(__file__))
-PERCORSO_CONFIG = os.path.join(CARTELLA_BASE, 'util', 'config.json')
-PERCORSO_LOG = os.path.join(CARTELLA_BASE, 'util', 'log.xml')
-
-# Carica la configurazione degli utenti e della porta da utilizzare
-try:
-    with open(PERCORSO_CONFIG, 'r') as f:
-        configurazione = json.load(f)
-    PORTA = configurazione.get('server_port', 20498)
-    UTENTI = configurazione.get('users', {"admin": "admin"})
-except:
-    PORTA = 20498
-    UTENTI = {"admin": "admin"}
-
-# Dizionario che contiene gli utenti online
-clienti = {}  # socket -> username
-
-
 # Trova l'ip di questo server usa UDP
 def trova_ip_locale():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -38,9 +19,6 @@ def trova_ip_locale():
     finally:
         s.close()
     return ip
-
-IP_SERVER = trova_ip_locale()
-
 
 # Creazione cartel Util
 def assicura_cartella_util():
@@ -76,7 +54,6 @@ def invia_testo(sock, testo):
         sock.sendall(testo.encode("utf-8"))
     except:
         pass
-
 
 # Funzione per cercare nella LAN inviando il DISCOVERY in broadcast UDP
 def scoperta_udp():
@@ -273,9 +250,27 @@ def gestisci_client(sock, addr):
 
         print("[CLOSE]", utente)
 
-
 # Punto di ingresso del programma
 if __name__ == "__main__":
+    # Percorsi
+    CARTELLA_BASE = os.path.dirname(os.path.abspath(__file__))
+    PERCORSO_CONFIG = os.path.join(CARTELLA_BASE, 'util', 'config.json')
+    PERCORSO_LOG = os.path.join(CARTELLA_BASE, 'util', 'log.xml')
+    IP_SERVER = trova_ip_locale()
+
+    # Dizionario che contiene gli utenti online
+    clienti = {}  # socket -> username
+    
+    # Carica la configurazione degli utenti e della porta da utilizzare
+    try:
+        with open(PERCORSO_CONFIG, 'r') as f:
+            configurazione = json.load(f)
+        PORTA = configurazione.get('server_port', 20498)
+        UTENTI = configurazione.get('users', {"admin": "admin"})
+    except:
+        PORTA = 20498
+        UTENTI = {"admin": "admin"}
+
     assicura_cartella_util()
 
     threading.Thread(target=scoperta_udp, daemon=True).start()
@@ -283,7 +278,7 @@ if __name__ == "__main__":
     # Apre il canale TCP
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    
+
     server.bind((IP_SERVER, PORTA))
     server.listen(5)
 

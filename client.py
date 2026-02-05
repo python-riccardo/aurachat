@@ -1,14 +1,12 @@
 # client.py - Client per connettersi al server di chat Aura
+
 import socket
 import os
 import sys
 import threading
 import time
 
-PORTA_BROADCAST = 20498
-LOCK_STAMPA = threading.Lock() # Evita che più thread stampino insieme
-
-# Trova il server nella rete locale senza sapere IP e porta ma inviando in broadcast il proprio DISCOVERY aspettando che un server risponda con un OFFER
+# Trova il server nella rete locale senza sapere IP e porta
 def scopri_server():
     print("Cerco il server...")
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -25,7 +23,7 @@ def scopri_server():
         pass
     return None, None
 
-# Continua a ricevere finche non trova il carattere INVIO (\n). Analizza byte per byte
+# Continua a ricevere finche non trova '\n'
 def ricevi_riga(sock, timeout=5.0):
     vecchio_timeout = sock.gettimeout()
     try:
@@ -46,7 +44,7 @@ def ricevi_riga(sock, timeout=5.0):
     finally:
         sock.settimeout(vecchio_timeout)
 
-# Continua a ricevere finche non riceve un certo numero di byte
+# Riceve un numero esatto di byte
 def ricevi_esatto(sock, dimensione):
     frammenti = []
     byte_ricevuti = 0
@@ -58,7 +56,7 @@ def ricevi_esatto(sock, dimensione):
         byte_ricevuti += len(frammento)
     return b''.join(frammenti)
 
-# Crea una cartella locale sul client e ci salva i file
+# Salva file ricevuto
 def salva_file_byte(nome_file, dati_byte):
     cartella_base = os.path.dirname(os.path.abspath(__file__))
     percorso_file = os.path.join(cartella_base, nome_file)
@@ -67,20 +65,16 @@ def salva_file_byte(nome_file, dati_byte):
         os.makedirs(cartella, exist_ok=True)
     with open(percorso_file, "wb") as f:
         f.write(dati_byte)
-    with LOCK_STAMPA:
-        print(f"\n[FILE] Salvato in: {percorso_file}\n")
+    print(f"\n[FILE] Salvato in: {percorso_file}\n")
 
-# Thread per ricevere e leggere i messaggi del server no-stop
+# Thread di ricezione
 def thread_ricezione(sock, evento_stop):
     while not evento_stop.is_set():
         try:
-            # Legge la prima riga (può essere testo normale o header di file)
-            riga_intestazione = ricevi_riga(sock, timeout=None)  # modalità bloccante
+            riga_intestazione = ricevi_riga(sock, timeout=None)
             if riga_intestazione is None:
-                # Socket chiuso
                 break
 
-            # Verifica se è un file in arrivo
             if riga_intestazione.startswith("__FILE__|"):
                 parti = riga_intestazione.split("|")
                 if len(parti) >= 3:
@@ -93,13 +87,10 @@ def thread_ricezione(sock, evento_stop):
                     if dati:
                         salva_file_byte(nome_file, dati)
                     else:
-                        with LOCK_STAMPA:
-                            print("[ERR] file vuoto o non ricevuto.")
+                        print("[ERR] file vuoto o non ricevuto.")
                 else:
-                    with LOCK_STAMPA:
-                        print("[ERR] Header file non valido:", riga_intestazione)
+                    print("[ERR] Header file non valido:", riga_intestazione)
             else:
-                # Messaggio di testo normale: tenta di leggere eventuali dati aggiuntivi
                 resto = b""
                 sock.settimeout(0.05)
                 try:
@@ -115,32 +106,32 @@ def thread_ricezione(sock, evento_stop):
                 finally:
                     sock.settimeout(None)
 
-                # Visualizza il messaggio completo
-                da_stampare = riga_intestazione + (("\n" + resto.decode('utf-8', errors='ignore')) if resto else "")
-                with LOCK_STAMPA:
-                    sys.stdout.write("\n" + da_stampare + "\n> ")
-                    sys.stdout.flush()
+                da_stampare = riga_intestazione + (
+                    ("\n" + resto.decode('utf-8', errors='ignore')) if resto else ""
+                )
+                sys.stdout.write("\n" + da_stampare + "\n> ")
+                sys.stdout.flush()
 
         except Exception as e:
-            with LOCK_STAMPA:
-                print("Errore ricezione:", e)
+            print("Errore ricezione:", e)
             break
 
-# Connessione al server con TCP, autenticazione e scambio di messaggi
-def avvia_client():
+if __name__ == "__main__":
 
-    # Scoperta automatica del server
+    PORTA_BROADCAST = 20498
+
+    # Scoperta server
     ip, porta = scopri_server()
     if not ip:
         print("Server non trovato.")
-        return
+        sys.exit(1)
 
     print(f"Server trovato a {ip}:{porta}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((ip, porta))
 
     try:
-        # Fase di autenticazione
+        # Autenticazione
         prompt = ricevi_riga(sock, timeout=5.0)
         if prompt and "USERNAME?" in prompt:
             u = input("Inserisci Username: ")
@@ -151,10 +142,8 @@ def avvia_client():
             p = input("Inserisci Password: ")
             sock.sendall(p.encode('utf-8'))
 
-        # Legge risposta di login dal server
         risposta = ricevi_riga(sock, timeout=3.0)
         if risposta is None:
-            # Fallback: legge ciò che è disponibile
             try:
                 sock.settimeout(1.0)
                 risposta = sock.recv(4096).decode('utf-8', errors='ignore')
@@ -162,21 +151,23 @@ def avvia_client():
                 risposta = ""
             finally:
                 sock.settimeout(None)
+
         print(risposta)
 
-        # Se login fallito, chiude connessione
         if "Bye" in risposta:
             sock.close()
-            return
+            sys.exit(0)
 
-        # Avvia thread di ricezione per gestire messaggi in background
         evento_stop = threading.Event()
-        t = threading.Thread(target=thread_ricezione, args=(sock, evento_stop), daemon=True)
+        t = threading.Thread(
+            target=thread_ricezione,
+            args=(sock, evento_stop),
+            daemon=True
+        )
         t.start()
 
         print("\nPronto! Comandi: USERSLIST, CHAT [nome], INFO 1-5, LOG, EXPORT, CHAT_EX, ENDCHAT, EXIT")
 
-        # Loop principale per inviare comandi al server
         while True:
             msg = input("> ").strip()
             if not msg:
@@ -185,9 +176,7 @@ def avvia_client():
 
             if msg.upper() == "EXIT":
                 break
-            # Le risposte vengono gestite dal thread di ricezione
 
-        # Chiusura pulita della connessione
         evento_stop.set()
         try:
             sock.shutdown(socket.SHUT_RDWR)
@@ -201,8 +190,3 @@ def avvia_client():
             sock.close()
         except:
             pass
-
-
-# Punto di ingresso del programma
-if __name__ == "__main__":
-    avvia_client()
