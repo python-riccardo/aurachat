@@ -171,4 +171,5 @@ EX xml        # Esporta i log in XML
 ## Autore
 Sistema AuraChat - Progetto didattico per reti di computer  
 20205@studenti.marconiverona.edu.it - Riccardo Costantini  
-20388@studenti.marconiverona.edu.it - Dante Pastrello
+20388@studenti.marconiverona.edu.it - Dante Pastrello  
+20198@studenti.marconiverona.edu.it - Alessandro Contri
