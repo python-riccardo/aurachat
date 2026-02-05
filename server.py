@@ -27,7 +27,7 @@ except:
 clienti = {}  # socket -> username
 
 
-# Trova l'ip di questo server
+# Trova l'ip di questo server usa UDP
 def trova_ip_locale():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -78,7 +78,7 @@ def invia_testo(sock, testo):
         pass
 
 
-# Funzione per farsi notare nella LAN inviando il DISCOVERY in broadcast
+# Funzione per cercare nella LAN inviando il DISCOVERY in broadcast
 def scoperta_udp():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
